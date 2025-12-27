@@ -1,184 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Neon Defender: Master Edition</title>
+    <title>NEON DEFENDER: FINAL AADHVIK VERSION 2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
-        canvas { display: block; background: #000; }
-        #ui { position: absolute; top: 15px; left: 15px; font-size: 18px; pointer-events: none; z-index: 10; line-height: 1.4; }
+        body { background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; touch-action: none; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; z-index: 10; font-size: 16px; color: #66fcf1; text-shadow: 1px 1px 2px #000; }
         
-        /* Mobile UI */
-        .touch-ctrl { position: absolute; border-radius: 50%; background: rgba(102, 252, 241, 0.1); border: 2px solid #66fcf1; display: flex; align-items: center; justify-content: center; user-select: none; z-index: 20; }
-        #stick-base { bottom: 40px; left: 40px; width: 100px; height: 100px; }
-        #stick-head { width: 40px; height: 40px; background: #66fcf1; border-radius: 50%; position: absolute; }
-        #fire-btn { bottom: 40px; right: 40px; width: 90px; height: 90px; color: #66fcf1; font-weight: bold; }
-        #nuke-btn { bottom: 150px; right: 50px; width: 60px; height: 60px; border-color: #9b59b6; color: #9b59b6; font-size: 12px; }
+        /* Optimized Mobile UI */
+        .ctrl { position: absolute; border-radius: 50%; background: rgba(102, 252, 241, 0.15); border: 2px solid #66fcf1; display: flex; align-items: center; justify-content: center; z-index: 20; }
+        #s-base { bottom: 30px; left: 30px; width: 100px; height: 100px; }
+        #s-head { width: 40px; height: 40px; background: #66fcf1; border-radius: 50%; position: absolute; box-shadow: 0 0 10px #66fcf1; }
+        #f-btn { bottom: 30px; right: 30px; width: 90px; height: 90px; font-weight: bold; color: #66fcf1; font-size: 18px; }
+        #n-btn { bottom: 140px; right: 45px; width: 60px; height: 60px; border-color: #9b59b6; color: #9b59b6; font-size: 12px; }
 
-        #boss-ui { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 70%; height: 12px; background: #222; border: 2px solid #ff3b30; display: none; }
-        #boss-hp { width: 100%; height: 100%; background: #ff3b30; transition: width 0.2s; }
+        #b-bar { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 70%; height: 10px; background: #111; border: 1px solid #ff3b30; display: none; }
+        #b-hp { width: 100%; height: 100%; background: #ff3b30; }
 
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        button { background: transparent; border: 2px solid #66fcf1; color: #66fcf1; padding: 15px 35px; font-size: 22px; cursor: pointer; margin-top: 20px; }
-        .hi-score { color: #f1c40f; font-size: 14px; margin-top: 5px; }
+        .modal { position: absolute; inset: 0; background: radial-gradient(circle, #0b0c10 0%, #000 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        button { background: #1f2833; border: 2px solid #66fcf1; color: #66fcf1; padding: 15px 40px; font-size: 24px; cursor: pointer; margin-top: 20px; transition: 0.2s; }
+        button:active { background: #66fcf1; color: #000; }
     </style>
 </head>
 <body>
 
-    <div id="menu" class="overlay">
-        <h1 style="color:#66fcf1; margin:0;">NEON DEFENDER</h1>
-        <div class="hi-score">PERSONAL BEST: <span id="hi-score-text">0</span></div>
-        <p style="font-size:14px; opacity:0.8;">WASD to Move | Space to Fire | E to Nuke<br>Or use Touch Controls</p>
+    <div id="menu" class="modal">
+        <h1 style="color:#66fcf1; font-size: 48px; margin:0; text-shadow: 0 0 15px #66fcf1;">NEON DEFENDER</h1>
+        <div id="hi" style="color:#f1c40f; margin-top:10px;">HI-SCORE: 0</div>
         <button onclick="start()">START MISSION</button>
     </div>
 
     <div id="ui">
-        SCORE: <span id="score">0</span><br>
-        HP: <span id="hp" style="color:#2ecc71">100</span>% | NUKES: <span id="nukes">0</span>
+        SCORE: <span id="score">0</span> | LVL: <span id="lvl">1</span><br>
+        HP: <span id="hp">100</span>% | NUKES: <span id="nks">0</span>
     </div>
 
-    <div id="boss-ui"><div id="boss-hp"></div></div>
+    <div id="b-bar"><div id="b-hp"></div></div>
 
-    <div id="stick-base" class="touch-ctrl"><div id="stick-head"></div></div>
-    <div id="nuke-btn" class="touch-ctrl">NUKE</div>
-    <div id="fire-btn" class="touch-ctrl">FIRE</div>
+    <div id="s-base" class="ctrl"><div id="s-head"></div></div>
+    <div id="n-btn" class="ctrl">NUKE</div>
+    <div id="f-btn" class="ctrl">FIRE</div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { alpha: false });
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        let player = { x: canvas.width/2, y: canvas.height/2, size: 18, color: '#66fcf1', angle: 0 };
-        let score = 0, health = 100, nukeCount = 1, playing = false, shake = 0;
-        let bullets = [], enemies = [], items = [], boss = null, keys = {};
+        let p = { x: canvas.width/2, y: canvas.height/2, r: 18, a: 0, hp: 100 };
+        let scr = 0, nks = 1, lvl = 1, active = false, tm = 0, shake = 0;
+        let blts = [], enms = [], items = [], stars = [], bss = null, keys = {};
         
-        let hiScore = localStorage.getItem('neonHiScore') || 0;
-        document.getElementById('hi-score-text').textContent = hiScore;
+        // Load High Score
+        let hi = localStorage.getItem('nd_final_hi') || 0;
+        document.getElementById('hi').innerText = "HI-SCORE: " + hi;
 
-        // Input Setup
-        window.addEventListener('keydown', e => {
-            keys[e.code] = true;
-            if (e.code === "KeyE" && playing) triggerNuke();
-        });
-        window.addEventListener('keyup', e => keys[e.code] = false);
+        // Initialize Starfield
+        for(let i=0; i<50; i++) stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2});
 
-        const base = document.getElementById('stick-base'), head = document.getElementById('stick-head');
-        let stick = { x: 0, y: 0, active: false }, touchFiring = false;
+        // Inputs
+        window.onkeydown = e => { keys[e.code] = true; if(e.code === 'KeyE') useNuke(); };
+        window.onkeyup = e => keys[e.code] = false;
 
-        base.addEventListener('touchstart', () => stick.active = true);
-        window.addEventListener('touchmove', e => {
-            if (!stick.active) return;
-            let t = e.touches[0], r = base.getBoundingClientRect();
+        const sb = document.getElementById('s-base'), sh = document.getElementById('s-head');
+        let st = { x: 0, y: 0, act: false }, tFire = false;
+
+        sb.ontouchstart = (e) => { e.preventDefault(); st.act = true; };
+        window.ontouchmove = e => {
+            if(!st.act) return;
+            let t = e.touches[0], r = sb.getBoundingClientRect();
             let dx = t.clientX - (r.left + r.width/2), dy = t.clientY - (r.top + r.height/2);
-            let angle = Math.atan2(dy, dx), dist = Math.min(50, Math.hypot(dx, dy));
-            stick.x = Math.cos(angle) * dist / 50; stick.y = Math.sin(angle) * dist / 50;
-            player.angle = angle;
-            head.style.transform = `translate(${stick.x * 30}px, ${stick.y * 30}px)`;
-        });
-        window.addEventListener('touchend', () => { stick.active = false; stick.x = 0; stick.y = 0; head.style.transform = `translate(0,0)`; });
-        document.getElementById('fire-btn').ontouchstart = () => touchFiring = true;
-        document.getElementById('fire-btn').ontouchend = () => touchFiring = false;
-        document.getElementById('nuke-btn').ontouchstart = triggerNuke;
+            let a = Math.atan2(dy, dx), d = Math.min(50, Math.hypot(dx, dy));
+            st.x = Math.cos(a) * d / 50; st.y = Math.sin(a) * d / 50;
+            p.a = a; sh.style.transform = `translate(${st.x*30}px, ${st.y*30}px)`;
+        };
+        window.ontouchend = () => { st.act = false; st.x = st.y = 0; sh.style.transform = `translate(0,0)`; };
+        document.getElementById('f-btn').ontouchstart = (e) => { e.preventDefault(); tFire = true; };
+        document.getElementById('f-btn').ontouchend = () => tFire = false;
+        document.getElementById('n-btn').ontouchstart = (e) => { e.preventDefault(); useNuke(); };
 
-        function start() { 
-            playing = true; 
-            document.getElementById('menu').style.display = 'none'; 
-            spawn(); 
-        }
+        function start() { active = true; document.getElementById('menu').style.display = 'none'; loop(); }
 
-        function triggerNuke() {
-            if (nukeCount > 0) {
-                nukeCount--; shake = 40; enemies = [];
-                if (boss) boss.hp -= 25;
-            }
-        }
+        function useNuke() { if(nks > 0 && active) { nks--; enms = []; shake = 40; if(bss) bss.hp -= 20; } }
 
         function update() {
-            if (!playing || health <= 0) return;
+            if(!active) return;
+            tm++;
+            
+            // Background motion
+            stars.forEach(s => { s.y += 1 + lvl*0.2; if(s.y > canvas.height) s.y = 0; });
 
-            // Movement (Hybrid)
+            // Hybrid Movement
             let kx = 0, ky = 0;
-            if (keys['KeyW']) ky -= 1; if (keys['KeyS']) ky += 1;
-            if (keys['KeyA']) kx -= 1; if (keys['KeyD']) kx += 1;
-            if (kx !== 0 || ky !== 0) { player.x += kx * 5; player.y += ky * 5; player.angle = Math.atan2(ky, kx); }
-            player.x += stick.x * 5; player.y += stick.y * 5;
+            if(keys['KeyW'] || keys['ArrowUp']) ky--; if(keys['KeyS'] || keys['ArrowDown']) ky++;
+            if(keys['KeyA'] || keys['ArrowLeft']) kx--; if(keys['KeyD'] || keys['ArrowRight']) kx++;
+            p.x += (kx*7) + (st.x*8); p.y += (ky*7) + (st.y*8);
+            if(kx || ky) p.a = Math.atan2(ky, kx);
 
-            // Fire
-            if ((touchFiring || keys['Space']) && Date.now() % 140 < 20) {
-                bullets.push({ x: player.x, y: player.y, vx: Math.cos(player.angle) * 14, vy: Math.sin(player.angle) * 14 });
+            // Keep player on screen
+            p.x = Math.max(p.r, Math.min(canvas.width - p.r, p.x));
+            p.y = Math.max(p.r, Math.min(canvas.height - p.r, p.y));
+
+            // Boss Check
+            if(scr > 0 && scr % 5000 === 0 && !bss) {
+                bss = { x: canvas.width/2, y: -80, hp: 150*lvl, m: 150*lvl, r: 60 };
+                document.getElementById('b-bar').style.display = 'block';
+            }
+            if(bss) {
+                bss.y += (bss.y < 120) ? 2 : Math.sin(tm/25)*2;
+                bss.x += Math.cos(tm/40)*5;
+                document.getElementById('b-hp').style.width = (bss.hp/bss.m*100) + "%";
             }
 
-            // Boss Logic
-            if (score > 0 && score % 5000 === 0 && !boss) {
-                boss = { x: canvas.width/2, y: -100, size: 70, hp: 100, max: 100 };
-                document.getElementById('boss-ui').style.display = 'block';
+            // Fire Logic
+            if((tFire || keys['Space']) && tm % 9 === 0) {
+                blts.push({ x: p.x, y: p.y, vx: Math.cos(p.a)*15, vy: Math.sin(p.a)*15 });
             }
 
-            if (boss) {
-                let d = Math.hypot(player.x - boss.x, player.y - boss.y);
-                boss.x += (player.x - boss.x) / d * 1.5; boss.y += (player.y - boss.y) / d * 1.5;
-                document.getElementById('boss-hp').style.width = (boss.hp/boss.max*100) + "%";
-                if (boss.hp <= 0) { boss = null; score += 1000; health = 100; nukeCount++; document.getElementById('boss-ui').style.display = 'none'; }
+            // Enemy Spawning
+            if(tm % Math.max(10, 50 - lvl*5) === 0 && !bss) {
+                enms.push({ x: Math.random()*canvas.width, y: -30, r: 15 + Math.random()*10 });
             }
 
-            // Collisions
-            enemies.forEach((en, i) => {
-                let d = Math.hypot(player.x - en.x, player.y - en.y);
-                en.x += (player.x - en.x) / d * 2.5; en.y += (player.y - en.y) / d * 2.5;
-                if (d < player.size + 15) { health -= 10; enemies.splice(i, 1); shake = 15; }
+            enms.forEach((e, i) => {
+                let ang = Math.atan2(p.y - e.y, p.x - e.x);
+                e.x += Math.cos(ang) * (3 + lvl*0.4); e.y += Math.sin(ang) * (3 + lvl*0.4);
+                if(Math.hypot(p.x-e.x, p.y-e.y) < p.r + e.r) { p.hp -= 10; shake = 20; enms.splice(i, 1); }
             });
 
-            bullets.forEach((b, bi) => {
+            blts.forEach((b, bi) => {
                 b.x += b.vx; b.y += b.vy;
-                if (boss && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.size) { boss.hp -= 2; bullets.splice(bi, 1); }
-                enemies.forEach((en, ei) => {
-                    if (Math.hypot(b.x - en.x, b.y - en.y) < 20) {
-                        if (Math.random() < 0.1) items.push({ x: en.x, y: en.y, type: Math.random() < 0.7 ? 'h' : 'n' });
-                        score += 10; enemies.splice(ei, 1); bullets.splice(bi, 1);
+                if(b.x < -10 || b.x > canvas.width+10 || b.y < -10 || b.y > canvas.height+10) blts.splice(bi, 1);
+                if(bss && Math.hypot(b.x-bss.x, b.y-bss.y) < bss.r) { 
+                    bss.hp--; blts.splice(bi, 1); 
+                    if(bss.hp <= 0) { bss=null; scr+=1500; lvl++; nks++; document.getElementById('b-bar').style.display='none'; }
+                }
+                enms.forEach((e, ei) => {
+                    if(Math.hypot(b.x-e.x, b.y-e.y) < e.r) {
+                        if(Math.random() < 0.12) items.push({x: e.x, y: e.y, t: Math.random() > 0.6 ? 'H' : 'N'});
+                        scr += 10; enms.splice(ei, 1); blts.splice(bi, 1);
                     }
                 });
             });
 
             items.forEach((it, i) => {
-                if (Math.hypot(player.x - it.x, player.y - it.y) < 30) {
-                    if (it.type === 'h') health = Math.min(100, health+20); else nukeCount++;
-                    items.splice(i, 1);
-                }
+                if(Math.hypot(p.x-it.x, p.y-it.y) < 35) { if(it.t==='H') p.hp=Math.min(100, p.hp+25); else nks++; items.splice(i,1); }
             });
 
-            if (score > hiScore) { hiScore = score; localStorage.setItem('neonHiScore', hiScore); }
-            document.getElementById('score').textContent = score;
-            document.getElementById('hp').textContent = Math.max(0, health);
-            document.getElementById('nukes').textContent = nukeCount;
-            if (health <= 0) location.reload();
-            if (shake > 0) shake *= 0.9;
+            document.getElementById('score').innerText = scr;
+            document.getElementById('hp').innerText = Math.max(0, p.hp);
+            document.getElementById('lvl').innerText = lvl;
+            document.getElementById('nks').innerText = nks;
+
+            if(p.hp <= 0) { if(scr > hi) localStorage.setItem('nd_final_hi', scr); location.reload(); }
+            if(shake > 0) shake *= 0.85;
         }
 
         function draw() {
             ctx.save();
-            if (shake > 1) ctx.translate(Math.random()*shake - shake/2, Math.random()*shake - shake/2);
-            ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            items.forEach(it => { ctx.fillStyle = it.type === 'h' ? '#2ecc71' : '#9b59b6'; ctx.fillRect(it.x-8, it.y-8, 16, 16); });
-            if (boss) { ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.size, 0, Math.PI*2); ctx.fill(); }
-            
-            ctx.save();
-            ctx.translate(player.x, player.y); ctx.rotate(player.angle);
-            ctx.fillStyle = player.color; ctx.beginPath(); ctx.moveTo(22,0); ctx.lineTo(-12,12); ctx.lineTo(-12,-12); ctx.fill();
-            ctx.restore();
+            if(shake > 1) ctx.translate(Math.random()*shake-shake/2, Math.random()*shake-shake/2);
+            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-            ctx.fillStyle = "white"; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill(); });
-            ctx.fillStyle = "#ff3b30"; enemies.forEach(en => { ctx.beginPath(); ctx.arc(en.x, en.y, 14, 0, Math.PI*2); ctx.fill(); });
+            // Starfield
+            ctx.fillStyle = "#444";
+            stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
+
+            // Player
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = '#66fcf1';
+            ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(-14, 14); ctx.lineTo(-14, -14); ctx.fill(); ctx.restore();
+
+            // Items
+            for(let it of items) { ctx.fillStyle = it.t==='H'?'#2ecc71':'#9b59b6'; ctx.fillRect(it.x-10, it.y-10, 20, 20); }
+
+            // Boss
+            if(bss) { ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.arc(bss.x, bss.y, bss.r, 0, Math.PI*2); ctx.fill(); }
+
+            // Bullets
+            ctx.fillStyle = "#fff";
+            for(let b of blts) { ctx.fillRect(b.x-2, b.y-2, 5, 5); }
+
+            // Enemies
+            ctx.fillStyle = "#ff3b30";
+            for(let e of enms) { ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill(); }
             ctx.restore();
         }
 
-        function spawn() { if(playing && !boss) enemies.push({ x: Math.random()*canvas.width, y: -30 }); setTimeout(spawn, 900); }
         function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
     </script>
 </body>
 </html>
-  
+
 
