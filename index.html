@@ -1,32 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Neon Defender Mobile</title>
+    <title>Neon Defender: Master Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
         canvas { display: block; background: #000; }
-        #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; pointer-events: none; z-index: 10; }
+        #ui { position: absolute; top: 15px; left: 15px; font-size: 18px; pointer-events: none; z-index: 10; line-height: 1.4; }
         
-        /* Mobile Touch Controls */
-        .touch-ctrl { position: absolute; bottom: 40px; border-radius: 50%; background: rgba(102, 252, 241, 0.1); border: 2px solid #66fcf1; display: flex; align-items: center; justify-content: center; user-select: none; }
-        #stick-base { left: 40px; width: 120px; height: 120px; }
-        #stick-head { width: 50px; height: 50px; background: #66fcf1; border-radius: 50%; position: absolute; }
-        #fire-btn { right: 40px; width: 100px; height: 100px; font-weight: bold; color: #66fcf1; }
-        #nuke-btn { right: 40px; bottom: 160px; width: 70px; height: 70px; border-color: #9b59b6; color: #9b59b6; font-size: 12px; }
-        
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        button { background: transparent; border: 2px solid #66fcf1; color: #66fcf1; padding: 20px 40px; font-size: 24px; cursor: pointer; }
+        /* Mobile UI */
+        .touch-ctrl { position: absolute; border-radius: 50%; background: rgba(102, 252, 241, 0.1); border: 2px solid #66fcf1; display: flex; align-items: center; justify-content: center; user-select: none; z-index: 20; }
+        #stick-base { bottom: 40px; left: 40px; width: 100px; height: 100px; }
+        #stick-head { width: 40px; height: 40px; background: #66fcf1; border-radius: 50%; position: absolute; }
+        #fire-btn { bottom: 40px; right: 40px; width: 90px; height: 90px; color: #66fcf1; font-weight: bold; }
+        #nuke-btn { bottom: 150px; right: 50px; width: 60px; height: 60px; border-color: #9b59b6; color: #9b59b6; font-size: 12px; }
+
+        #boss-ui { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 70%; height: 12px; background: #222; border: 2px solid #ff3b30; display: none; }
+        #boss-hp { width: 100%; height: 100%; background: #ff3b30; transition: width 0.2s; }
+
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        button { background: transparent; border: 2px solid #66fcf1; color: #66fcf1; padding: 15px 35px; font-size: 22px; cursor: pointer; margin-top: 20px; }
+        .hi-score { color: #f1c40f; font-size: 14px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div id="menu" class="overlay">
-        <h1 style="color:#66fcf1">NEON DEFENDER</h1>
-        <button onclick="start()">START GAME</button>
+        <h1 style="color:#66fcf1; margin:0;">NEON DEFENDER</h1>
+        <div class="hi-score">PERSONAL BEST: <span id="hi-score-text">0</span></div>
+        <p style="font-size:14px; opacity:0.8;">WASD to Move | Space to Fire | E to Nuke<br>Or use Touch Controls</p>
+        <button onclick="start()">START MISSION</button>
     </div>
 
-    <div id="ui">SCORE: <span id="score">0</span> | HP: <span id="hp">100</span>%</div>
+    <div id="ui">
+        SCORE: <span id="score">0</span><br>
+        HP: <span id="hp" style="color:#2ecc71">100</span>% | NUKES: <span id="nukes">0</span>
+    </div>
+
+    <div id="boss-ui"><div id="boss-hp"></div></div>
 
     <div id="stick-base" class="touch-ctrl"><div id="stick-head"></div></div>
     <div id="nuke-btn" class="touch-ctrl">NUKE</div>
@@ -39,98 +50,135 @@
         const ctx = canvas.getContext("2d");
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        let player = { x: canvas.width/2, y: canvas.height/2, size: 20, color: '#66fcf1', angle: 0 };
-        let score = 0, health = 100, nukes = 0, playing = false;
-        let bullets = [], enemies = [], stick = { x: 0, y: 0, active: false };
+        let player = { x: canvas.width/2, y: canvas.height/2, size: 18, color: '#66fcf1', angle: 0 };
+        let score = 0, health = 100, nukeCount = 1, playing = false, shake = 0;
+        let bullets = [], enemies = [], items = [], boss = null, keys = {};
+        
+        let hiScore = localStorage.getItem('neonHiScore') || 0;
+        document.getElementById('hi-score-text').textContent = hiScore;
 
-        // Joystick Logic
-        const base = document.getElementById('stick-base');
-        const head = document.getElementById('stick-head');
+        // Input Setup
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === "KeyE" && playing) triggerNuke();
+        });
+        window.addEventListener('keyup', e => keys[e.code] = false);
 
-        base.addEventListener('touchstart', e => { stick.active = true; });
+        const base = document.getElementById('stick-base'), head = document.getElementById('stick-head');
+        let stick = { x: 0, y: 0, active: false }, touchFiring = false;
+
+        base.addEventListener('touchstart', () => stick.active = true);
         window.addEventListener('touchmove', e => {
             if (!stick.active) return;
-            let touch = e.touches[0];
-            let rect = base.getBoundingClientRect();
-            let centerX = rect.left + rect.width/2;
-            let centerY = rect.top + rect.height/2;
-            
-            let angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
-            let dist = Math.min(60, Math.hypot(touch.clientX - centerX, touch.clientY - centerY));
-            
-            stick.x = Math.cos(angle) * dist / 60;
-            stick.y = Math.sin(angle) * dist / 60;
+            let t = e.touches[0], r = base.getBoundingClientRect();
+            let dx = t.clientX - (r.left + r.width/2), dy = t.clientY - (r.top + r.height/2);
+            let angle = Math.atan2(dy, dx), dist = Math.min(50, Math.hypot(dx, dy));
+            stick.x = Math.cos(angle) * dist / 50; stick.y = Math.sin(angle) * dist / 50;
             player.angle = angle;
-            
-            head.style.transform = `translate(${stick.x * 40}px, ${stick.y * 40}px)`;
+            head.style.transform = `translate(${stick.x * 30}px, ${stick.y * 30}px)`;
         });
-        window.addEventListener('touchend', () => { 
-            stick.active = false; stick.x = 0; stick.y = 0; 
-            head.style.transform = `translate(0,0)`;
-        });
-
-        // Fire & Nuke Buttons
-        let firing = false;
-        document.getElementById('fire-btn').ontouchstart = () => firing = true;
-        document.getElementById('fire-btn').ontouchend = () => firing = false;
-        document.getElementById('nuke-btn').ontouchstart = () => { if(nukes > 0) useNuke(); };
+        window.addEventListener('touchend', () => { stick.active = false; stick.x = 0; stick.y = 0; head.style.transform = `translate(0,0)`; });
+        document.getElementById('fire-btn').ontouchstart = () => touchFiring = true;
+        document.getElementById('fire-btn').ontouchend = () => touchFiring = false;
+        document.getElementById('nuke-btn').ontouchstart = triggerNuke;
 
         function start() { 
             playing = true; 
-            document.getElementById('menu').style.display = 'none';
+            document.getElementById('menu').style.display = 'none'; 
             spawn(); 
         }
 
-        function useNuke() { nukes--; enemies = []; }
+        function triggerNuke() {
+            if (nukeCount > 0) {
+                nukeCount--; shake = 40; enemies = [];
+                if (boss) boss.hp -= 25;
+            }
+        }
 
         function update() {
             if (!playing || health <= 0) return;
 
-            player.x += stick.x * 5;
-            player.y += stick.y * 5;
+            // Movement (Hybrid)
+            let kx = 0, ky = 0;
+            if (keys['KeyW']) ky -= 1; if (keys['KeyS']) ky += 1;
+            if (keys['KeyA']) kx -= 1; if (keys['KeyD']) kx += 1;
+            if (kx !== 0 || ky !== 0) { player.x += kx * 5; player.y += ky * 5; player.angle = Math.atan2(ky, kx); }
+            player.x += stick.x * 5; player.y += stick.y * 5;
 
-            if (firing && Date.now() % 150 < 20) {
-                bullets.push({ x: player.x, y: player.y, vx: Math.cos(player.angle) * 12, vy: Math.sin(player.angle) * 12 });
+            // Fire
+            if ((touchFiring || keys['Space']) && Date.now() % 140 < 20) {
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(player.angle) * 14, vy: Math.sin(player.angle) * 14 });
             }
 
+            // Boss Logic
+            if (score > 0 && score % 5000 === 0 && !boss) {
+                boss = { x: canvas.width/2, y: -100, size: 70, hp: 100, max: 100 };
+                document.getElementById('boss-ui').style.display = 'block';
+            }
+
+            if (boss) {
+                let d = Math.hypot(player.x - boss.x, player.y - boss.y);
+                boss.x += (player.x - boss.x) / d * 1.5; boss.y += (player.y - boss.y) / d * 1.5;
+                document.getElementById('boss-hp').style.width = (boss.hp/boss.max*100) + "%";
+                if (boss.hp <= 0) { boss = null; score += 1000; health = 100; nukeCount++; document.getElementById('boss-ui').style.display = 'none'; }
+            }
+
+            // Collisions
             enemies.forEach((en, i) => {
                 let d = Math.hypot(player.x - en.x, player.y - en.y);
-                en.x += (player.x - en.x) / d * 2;
-                en.y += (player.y - en.y) / d * 2;
-                if (d < player.size + 15) { health -= 10; enemies.splice(i, 1); }
+                en.x += (player.x - en.x) / d * 2.5; en.y += (player.y - en.y) / d * 2.5;
+                if (d < player.size + 15) { health -= 10; enemies.splice(i, 1); shake = 15; }
             });
 
             bullets.forEach((b, bi) => {
                 b.x += b.vx; b.y += b.vy;
+                if (boss && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.size) { boss.hp -= 2; bullets.splice(bi, 1); }
                 enemies.forEach((en, ei) => {
                     if (Math.hypot(b.x - en.x, b.y - en.y) < 20) {
+                        if (Math.random() < 0.1) items.push({ x: en.x, y: en.y, type: Math.random() < 0.7 ? 'h' : 'n' });
                         score += 10; enemies.splice(ei, 1); bullets.splice(bi, 1);
                     }
                 });
             });
 
+            items.forEach((it, i) => {
+                if (Math.hypot(player.x - it.x, player.y - it.y) < 30) {
+                    if (it.type === 'h') health = Math.min(100, health+20); else nukeCount++;
+                    items.splice(i, 1);
+                }
+            });
+
+            if (score > hiScore) { hiScore = score; localStorage.setItem('neonHiScore', hiScore); }
             document.getElementById('score').textContent = score;
             document.getElementById('hp').textContent = Math.max(0, health);
-            if(health <= 0) location.reload();
+            document.getElementById('nukes').textContent = nukeCount;
+            if (health <= 0) location.reload();
+            if (shake > 0) shake *= 0.9;
         }
 
         function draw() {
-            ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            if (shake > 1) ctx.translate(Math.random()*shake - shake/2, Math.random()*shake - shake/2);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            items.forEach(it => { ctx.fillStyle = it.type === 'h' ? '#2ecc71' : '#9b59b6'; ctx.fillRect(it.x-8, it.y-8, 16, 16); });
+            if (boss) { ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.arc(boss.x, boss.y, boss.size, 0, Math.PI*2); ctx.fill(); }
             
             ctx.save();
             ctx.translate(player.x, player.y); ctx.rotate(player.angle);
-            ctx.fillStyle = player.color;
-            ctx.beginPath(); ctx.moveTo(25,0); ctx.lineTo(-15,15); ctx.lineTo(-15,-15); ctx.fill();
+            ctx.fillStyle = player.color; ctx.beginPath(); ctx.moveTo(22,0); ctx.lineTo(-12,12); ctx.lineTo(-12,-12); ctx.fill();
             ctx.restore();
 
-            ctx.fillStyle = "white"; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill(); });
-            ctx.fillStyle = "red"; enemies.forEach(en => { ctx.beginPath(); ctx.arc(en.x, en.y, 15, 0, Math.PI*2); ctx.fill(); });
+            ctx.fillStyle = "white"; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill(); });
+            ctx.fillStyle = "#ff3b30"; enemies.forEach(en => { ctx.beginPath(); ctx.arc(en.x, en.y, 14, 0, Math.PI*2); ctx.fill(); });
+            ctx.restore();
         }
 
-        function spawn() { if(playing) enemies.push({ x: Math.random()*canvas.width, y: -20 }); setTimeout(spawn, 1000); }
+        function spawn() { if(playing && !boss) enemies.push({ x: Math.random()*canvas.width, y: -30 }); setTimeout(spawn, 900); }
         function loop() { update(); draw(); requestAnimationFrame(loop); }
         loop();
     </script>
 </body>
 </html>
   
+
