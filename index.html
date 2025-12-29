@@ -1,26 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>NEON DEFENDER: FINAL AADHVIK VERSION 2</title>
+    <title>NEON DEFENDER: AADHVIK ULTIMATE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; touch-action: none; }
+        body { background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
         canvas { display: block; }
         #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; z-index: 10; font-size: 16px; color: #66fcf1; text-shadow: 1px 1px 2px #000; }
-        
-        /* Optimized Mobile UI */
         .ctrl { position: absolute; border-radius: 50%; background: rgba(102, 252, 241, 0.15); border: 2px solid #66fcf1; display: flex; align-items: center; justify-content: center; z-index: 20; }
         #s-base { bottom: 30px; left: 30px; width: 100px; height: 100px; }
         #s-head { width: 40px; height: 40px; background: #66fcf1; border-radius: 50%; position: absolute; box-shadow: 0 0 10px #66fcf1; }
         #f-btn { bottom: 30px; right: 30px; width: 90px; height: 90px; font-weight: bold; color: #66fcf1; font-size: 18px; }
         #n-btn { bottom: 140px; right: 45px; width: 60px; height: 60px; border-color: #9b59b6; color: #9b59b6; font-size: 12px; }
-
         #b-bar { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 70%; height: 10px; background: #111; border: 1px solid #ff3b30; display: none; }
         #b-hp { width: 100%; height: 100%; background: #ff3b30; }
-
         .modal { position: absolute; inset: 0; background: radial-gradient(circle, #0b0c10 0%, #000 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        button { background: #1f2833; border: 2px solid #66fcf1; color: #66fcf1; padding: 15px 40px; font-size: 24px; cursor: pointer; margin-top: 20px; transition: 0.2s; }
-        button:active { background: #66fcf1; color: #000; }
+        button { background: #1f2833; border: 2px solid #66fcf1; color: #66fcf1; padding: 15px 40px; font-size: 24px; cursor: pointer; margin-top: 20px; }
+        #death-screen { display: none; background: rgba(20, 0, 0, 0.95); }
     </style>
 </head>
 <body>
@@ -31,13 +27,18 @@
         <button onclick="start()">START MISSION</button>
     </div>
 
+    <div id="death-screen" class="modal">
+        <h1 style="color:#ff3b30; font-size: 50px; text-shadow: 0 0 20px #ff3b30;">MISSION FAILED</h1>
+        <p id="final-stats" style="color:#fff; font-size: 20px;"></p>
+        <button onclick="location.reload()" style="border-color:#ff3b30; color:#ff3b30;">RESTART CORE</button>
+    </div>
+
     <div id="ui">
         SCORE: <span id="score">0</span> | LVL: <span id="lvl">1</span><br>
         HP: <span id="hp">100</span>% | NUKES: <span id="nks">0</span>
     </div>
 
     <div id="b-bar"><div id="b-hp"></div></div>
-
     <div id="s-base" class="ctrl"><div id="s-head"></div></div>
     <div id="n-btn" class="ctrl">NUKE</div>
     <div id="f-btn" class="ctrl">FIRE</div>
@@ -49,18 +50,15 @@
         const ctx = canvas.getContext("2d", { alpha: false });
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-        let p = { x: canvas.width/2, y: canvas.height/2, r: 18, a: 0, hp: 100 };
+        let p = { x: canvas.width/2, y: canvas.height/2, r: 18, a: 0, hp: 100, shld: 0 };
         let scr = 0, nks = 1, lvl = 1, active = false, tm = 0, shake = 0;
         let blts = [], enms = [], items = [], stars = [], bss = null, keys = {};
         
-        // Load High Score
         let hi = localStorage.getItem('nd_final_hi') || 0;
         document.getElementById('hi').innerText = "HI-SCORE: " + hi;
 
-        // Initialize Starfield
         for(let i=0; i<50; i++) stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2});
 
-        // Inputs
         window.onkeydown = e => { keys[e.code] = true; if(e.code === 'KeyE') useNuke(); };
         window.onkeyup = e => keys[e.code] = false;
 
@@ -77,33 +75,47 @@
             p.a = a; sh.style.transform = `translate(${st.x*30}px, ${st.y*30}px)`;
         };
         window.ontouchend = () => { st.act = false; st.x = st.y = 0; sh.style.transform = `translate(0,0)`; };
+        
         document.getElementById('f-btn').ontouchstart = (e) => { e.preventDefault(); tFire = true; };
         document.getElementById('f-btn').ontouchend = () => tFire = false;
         document.getElementById('n-btn').ontouchstart = (e) => { e.preventDefault(); useNuke(); };
 
         function start() { active = true; document.getElementById('menu').style.display = 'none'; loop(); }
 
-        function useNuke() { if(nks > 0 && active) { nks--; enms = []; shake = 40; if(bss) bss.hp -= 20; } }
+        function useNuke() { 
+            if(nks > 0 && active) { 
+                nks--; 
+                shake = 50;
+                scr += enms.length * 10; // NUKE SCORING: Get points for all enemies killed
+                enms = []; 
+                if(bss) bss.hp -= 50; 
+            } 
+        }
+
+        function spawnBullet(angleOffset = 0) {
+            blts.push({ x: p.x, y: p.y, vx: Math.cos(p.a + angleOffset)*15, vy: Math.sin(p.a + angleOffset)*15 });
+        }
 
         function update() {
             if(!active) return;
             tm++;
-            
-            // Background motion
+            if(p.shld > 0) p.shld--;
+
             stars.forEach(s => { s.y += 1 + lvl*0.2; if(s.y > canvas.height) s.y = 0; });
 
-            // Hybrid Movement
             let kx = 0, ky = 0;
             if(keys['KeyW'] || keys['ArrowUp']) ky--; if(keys['KeyS'] || keys['ArrowDown']) ky++;
             if(keys['KeyA'] || keys['ArrowLeft']) kx--; if(keys['KeyD'] || keys['ArrowRight']) kx++;
-            p.x += (kx*7) + (st.x*8); p.y += (ky*7) + (st.y*8);
-            if(kx || ky) p.a = Math.atan2(ky, kx);
+            
+            let finalX = (kx*7) + (st.x*8);
+            let finalY = (ky*7) + (st.y*8);
+            p.x += finalX; p.y += finalY;
+            if(Math.abs(finalX) > 0.1 || Math.abs(finalY) > 0.1) p.a = Math.atan2(finalY, finalX);
 
-            // Keep player on screen
             p.x = Math.max(p.r, Math.min(canvas.width - p.r, p.x));
             p.y = Math.max(p.r, Math.min(canvas.height - p.r, p.y));
 
-            // Boss Check
+            // BOSS SPAWN
             if(scr > 0 && scr % 5000 === 0 && !bss) {
                 bss = { x: canvas.width/2, y: -80, hp: 150*lvl, m: 150*lvl, r: 60 };
                 document.getElementById('b-bar').style.display = 'block';
@@ -114,12 +126,12 @@
                 document.getElementById('b-hp').style.width = (bss.hp/bss.m*100) + "%";
             }
 
-            // Fire Logic
+            // FIRE LOGIC (TRIPLE SHOT AT LVL 5)
             if((tFire || keys['Space']) && tm % 9 === 0) {
-                blts.push({ x: p.x, y: p.y, vx: Math.cos(p.a)*15, vy: Math.sin(p.a)*15 });
+                spawnBullet(0);
+                if(lvl >= 5) { spawnBullet(0.3); spawnBullet(-0.3); }
             }
 
-            // Enemy Spawning
             if(tm % Math.max(10, 50 - lvl*5) === 0 && !bss) {
                 enms.push({ x: Math.random()*canvas.width, y: -30, r: 15 + Math.random()*10 });
             }
@@ -127,7 +139,10 @@
             enms.forEach((e, i) => {
                 let ang = Math.atan2(p.y - e.y, p.x - e.x);
                 e.x += Math.cos(ang) * (3 + lvl*0.4); e.y += Math.sin(ang) * (3 + lvl*0.4);
-                if(Math.hypot(p.x-e.x, p.y-e.y) < p.r + e.r) { p.hp -= 10; shake = 20; enms.splice(i, 1); }
+                if(Math.hypot(p.x-e.x, p.y-e.y) < p.r + e.r) { 
+                    if(p.shld <= 0) p.hp -= 10; 
+                    shake = 20; enms.splice(i, 1); 
+                }
             });
 
             blts.forEach((b, bi) => {
@@ -139,14 +154,23 @@
                 }
                 enms.forEach((e, ei) => {
                     if(Math.hypot(b.x-e.x, b.y-e.y) < e.r) {
-                        if(Math.random() < 0.12) items.push({x: e.x, y: e.y, t: Math.random() > 0.6 ? 'H' : 'N'});
+                        if(Math.random() < 0.15) {
+                            let r = Math.random();
+                            let type = r < 0.4 ? 'H' : (r < 0.8 ? 'N' : 'S');
+                            items.push({x: e.x, y: e.y, t: type});
+                        }
                         scr += 10; enms.splice(ei, 1); blts.splice(bi, 1);
                     }
                 });
             });
 
             items.forEach((it, i) => {
-                if(Math.hypot(p.x-it.x, p.y-it.y) < 35) { if(it.t==='H') p.hp=Math.min(100, p.hp+25); else nks++; items.splice(i,1); }
+                if(Math.hypot(p.x-it.x, p.y-it.y) < 35) { 
+                    if(it.t==='H') p.hp=Math.min(100, p.hp+25); 
+                    else if(it.t==='N') nks++;
+                    else if(it.t==='S') p.shld = 300; // 5 seconds shield
+                    items.splice(i,1); 
+                }
             });
 
             document.getElementById('score').innerText = scr;
@@ -154,7 +178,12 @@
             document.getElementById('lvl').innerText = lvl;
             document.getElementById('nks').innerText = nks;
 
-            if(p.hp <= 0) { if(scr > hi) localStorage.setItem('nd_final_hi', scr); location.reload(); }
+            if(p.hp <= 0) { 
+                active = false;
+                if(scr > hi) localStorage.setItem('nd_final_hi', scr); 
+                document.getElementById('death-screen').style.display = 'flex';
+                document.getElementById('final-stats').innerText = "FINAL SCORE: " + scr + " | LEVEL: " + lvl;
+            }
             if(shake > 0) shake *= 0.85;
         }
 
@@ -163,25 +192,28 @@
             if(shake > 1) ctx.translate(Math.random()*shake-shake/2, Math.random()*shake-shake/2);
             ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-            // Starfield
-            ctx.fillStyle = "#444";
-            stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
+            ctx.fillStyle = "#444"; stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
 
-            // Player
-            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = '#66fcf1';
-            ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(-14, 14); ctx.lineTo(-14, -14); ctx.fill(); ctx.restore();
+            // Player & Shield
+            ctx.save(); ctx.translate(p.x, p.y); 
+            if(p.shld > 0) {
+                ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(0,0,p.r+10,0,Math.PI*2); ctx.stroke();
+            }
+            ctx.rotate(p.a); ctx.fillStyle = '#66fcf1';
+            ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(-14, 14); ctx.lineTo(-14, -14); ctx.fill(); 
+            ctx.restore();
 
             // Items
-            for(let it of items) { ctx.fillStyle = it.t==='H'?'#2ecc71':'#9b59b6'; ctx.fillRect(it.x-10, it.y-10, 20, 20); }
+            for(let it of items) { 
+                ctx.fillStyle = it.t==='H'?'#2ecc71':(it.t==='N'?'#9b59b6':'#f1c40f'); 
+                ctx.fillRect(it.x-10, it.y-10, 20, 20); 
+            }
 
-            // Boss
             if(bss) { ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.arc(bss.x, bss.y, bss.r, 0, Math.PI*2); ctx.fill(); }
 
-            // Bullets
-            ctx.fillStyle = "#fff";
-            for(let b of blts) { ctx.fillRect(b.x-2, b.y-2, 5, 5); }
+            ctx.fillStyle = "#fff"; for(let b of blts) { ctx.fillRect(b.x-2, b.y-2, 5, 5); }
 
-            // Enemies
             ctx.fillStyle = "#ff3b30";
             for(let e of enms) { ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill(); }
             ctx.restore();
@@ -191,5 +223,3 @@
     </script>
 </body>
 </html>
-
-
